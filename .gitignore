@@ -1,0 +1,5 @@
+*.csv
+*.pbf
+nominatim-docker/*
+postgresdata/*
+*.zip
