@@ -82,3 +82,24 @@ histogram(df_EBY[:time_of_infraction], bins=23)
 # Then, Leaflet.js looks like it can plot arbitrary polygons, polylines, etc. Make a polyline with the nodes on the Way, and plot! Can be interactive (has popups). 
 
 
+# nominatim API: Examples:
+# get location in JSON http://localhost:7070/search/?format=json&q=1209+Queen+Street+East,+Toronto&addressdetails=1
+# Using the osm_id, we can search to get more info
+# http://localhost:7070/lookup?osm_ids=N804614415 [[ the N is for "node" ]]
+# What we really want is the Way ID that contains the node
+
+# We can try to search the street name
+# http://localhost:7070/search/?format=xml&q=Queen+Street+East,+Toronto&limit=1000
+
+# looks like I need to research the overpass API
+# There seems to be an updated docker container https://hub.docker.com/r/wiktorn/overpass-api/
+
+# 1209 Queen St E lat/long is 43.6628783/-79.3313065 (from above API search query)
+# nominatim reverse with zoom at 16:
+# http://localhost:7070/reverse?format=xml&lat=43.6628783&lon=-79.3313065&zoom=16
+# this has the correct way osm_id [W]551976979!
+# zoom at 16 gives us a the street level.
+# Seems kinda wasteful, but whatever
+# We can even output the bounding box to use with leaflet.js
+
+
