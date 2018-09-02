@@ -1,3 +1,13 @@
+# ===============================================
+# NOTES FOR DATA VISUALIZATION AND ANALYSIS
+# OF TORONTO PARKING TICKET DATA
+# ===============================================
+
+# in shell, should do
+# export JULIA_NUM_THREADS=4
+# to set 4 threads
+# also, i think need to @everywhere include("tix.jl")
+
 
 
 # Some commands cause I can't get the notebooks to work well right now
@@ -7,6 +17,9 @@ Pkg.activate(".")
 using CSV
 using Plots
 using DataFrames
+using HTTP
+using JSON
+using Distributed
 
 df = CSV.read("Parking_Tags_Data_2016_1.csv")
 
@@ -102,4 +115,209 @@ histogram(df_EBY[:time_of_infraction], bins=23)
 # Seems kinda wasteful, but whatever
 # We can even output the bounding box to use with leaflet.js
 
+# Have "Way" objects. Each Way is POD (export to json) and has the info
+# - average infractions per day
+# - Number of each type of infraction
+# - Most common infraction type / cost
+# - 3 hour window with the highest average infraction (weekend vs weekday?)
+# - List of nodes in dataframe corresponding to the segment.
 
+
+struct StreetSegment
+    name::String
+    osm_id::String
+    boundingBox::Array{Any}
+    infraction_nodes::Array{Any}
+end
+
+
+function nominatim_query(qstring)
+    q = "http://localhost:7070/search/?format=json&q="
+    for word in split(qstring)
+        q *= word * "+"
+    end
+    return q[1:end-1]
+end
+
+function nominatim_reverse(lat,lon,zoom=16)
+    q = "http://localhost:7070/reverse?format=json&"
+    q *= "lat=" * lat * "&"
+    q *= "lon=" * lon * "&"
+    q *= "zoom=16"
+    return q
+end
+
+    
+function nominatim_response(nom_query,reverse=false)
+    req = HTTP.request("GET", nom_query)
+    reqjson = JSON.parse(String(req.body))
+    if reverse==true
+        return reqjson
+    else
+        try
+            return reqjson[1]
+        catch
+            return reqjson
+        end
+    end
+end 
+
+function getStreetSegment(qstring)
+    nom_query = nominatim_query(qstring)
+    qstring_req = nominatim_response(nom_query)
+    # reverse geolocate with 
+    lat = qstring_req["lat"]
+    lon = qstring_req["lon"]
+    reversereq = nominatim_response(nominatim_reverse(lat,lon), true)
+    return reversereq
+end
+
+# generate random ways:
+getStreetSegment(df.location2[rand(1:1000)] * ", Toronto")
+
+# clear missings
+
+df = df[ [!(ismissing(x)) for x in df.location2], : ]
+
+
+# naiive implementation, probably need to specialize later 
+# so checking containment is more like O(1). Hash map maybe?
+
+
+# ArgumentError("Invalid index: lat of type String")
+# error at: 90, 93, 95, 98, 103, .. , 1269, 1578, ...
+# This happens when nominatim doesn't find a match for the address. 
+# Example: ALESSIA CRCL confuses nominatim but ALESSIA CIRCLE is okay.
+# TODO: address sanitizer
+
+# @time allStreetSegmentsOld(df[1:100,:]) ~~~~ roughly 17 seconds
+# @time allStreetSegmentsOld(df[1:100,:]) ~~~~ roughly 177 seconds
+function allStreetSegmentsOld(df)
+    # make sure df has no missings, etc
+    listStreetSegments = []
+    for i in 1:size(df)[1]
+        try
+            qstring = df[i,:].location2[1] * ", Toronto"
+            q_way = getStreetSegment(qstring)
+            qquery = nominatim_query(qstring)
+            qresponse = nominatim_response(qquery)
+            foundWay = false
+            for seg in listStreetSegments
+                if seg.osm_id == q_way["osm_id"]
+                    foundWay = true
+                    # add this node
+                    push!(seg.infraction_nodes,
+                          qresponse["osm_id"])
+                end
+            end
+            if !foundWay
+                # new StreetSegment
+                seg = StreetSegment(q_way["display_name"],
+                                    q_way["osm_id"],
+                                    q_way["boundingbox"],
+                                    [qresponse["osm_id"]])
+                push!(listStreetSegments, seg)
+            end
+        catch err
+            print("ERROR: ")
+            println(err)
+            print("error at: ")
+            println(i)
+        end
+    end
+    return listStreetSegments
+end
+
+
+# @time allStreetSegments(df[1:100, :]) ~~~~ roughly 17 seconds
+# @time allStreetSegments(df[1:1000, :]) ~~~~ roughly 175 seconds
+# profiling:
+# @time allStreetSegments(df[1:10, :]) ~~~ roughly 1.7, 1.8 seconds
+# getStreetSegment ~~~ 0.126
+# nominatim_response ~~~ 0.07
+# minifunc is qstring, q_way, qquery, qresponse
+# @time minifunc(df[1:10, :]) ~~~ 1.7 seconds. 
+# Conclude: Most of the time is taken by querying the nominatim API
+#           especially the reverse geocoding portion.
+
+function allStreetSegments(df)
+    # make sure df has no missings, etc
+    listStreetSegments = Dict{String, StreetSegment}()
+    for i in 1:size(df)[1]
+        try
+            qstring = df[i,:].location2[1] * ", Toronto"
+            q_way = getStreetSegment(qstring)
+            qquery = nominatim_query(qstring)
+            qresponse = nominatim_response(qquery)
+            if haskey(listStreetSegments, q_way["osm_id"])
+                push!(listStreetSegments[q_way["osm_id"]].infraction_nodes,
+                      qresponse["osm_id"])
+            else
+                seg = StreetSegment(q_way["display_name"],
+                                    q_way["osm_id"],
+                                    q_way["boundingbox"],
+                                    [qresponse["osm_id"]])
+                listStreetSegments[q_way["osm_id"]] = seg
+            end
+        catch err
+            print("ERROR: ")
+            println(err)
+            print("error at: ")
+            println(i)
+        end
+    end
+    return listStreetSegments
+end
+
+# this is pretty slow still. But if we start with multiple processes, we can speed up. 
+# example:
+# function test()
+#   r1 = remotecall(allStreetSegments, 2, df[1:50, :])
+#   r2 = remotecall(allStreetSegments, 2, df[51:100, :])
+#   f1 = fetch(r1)
+#   f2 = fetch(r2)
+#   return f1,f2
+# end
+# ===============================
+# This runs in 8.44 seconds (compare with ~17 seconds single threaded)
+# Running the test splitting 1000 into 1:333, 334:666, 667:1000 it takes ~60.9 seconds!!!
+# This should reduce the approximate 3 hour runthrough into 1 hour, but we still need to merge the results
+# TODO: think of merging algorithm
+
+function multiStreetSegments(df)
+    # hardcode to 5 procs, and 749874 entries
+    r1 = remotecall(allStreetSegments, 2, df[1:187468,:])
+    r2 = remotecall(allStreetSegments, 3, df[187469:374936,:])
+    r3 = remotecall(allStreetSegments, 4, df[374937:562404,:])
+    r4 = remotecall(allStreetSegments, 5, df[562405:749875,:])
+    
+    f1 = fetch(r1)
+    f2 = fetch(r2)
+    f3 = fetch(r3)
+    f4 = fetch(r4)
+    return f1,f2,f3, f4
+end
+
+
+
+
+
+
+
+        
+
+
+
+
+
+# Have "Neighbourhood" objects. Each neighbourhood contains a list of ways
+# as wel as the bounding box (how to get?) so that we can plot in Leaflet.
+
+
+# TODO Still! Can now look at data PER STREET SECTION per day
+# Cops come by at random times? How is it distributed? 
+# If you leave the car, what is the probability a cop comes by in the next X minutes?
+# Follow a typical waiting time distribution?
+# QUESTION: Given that parking is maximum 3 hours, and the distribution of cop visits to street, 
+#           using the green P app, how can you maximize total parking time?
+#           i.e., average wait + 3 hours + average wait

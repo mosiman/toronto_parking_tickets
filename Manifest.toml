@@ -33,15 +33,15 @@ version = "0.7.4"
 
 [[Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "InteractiveUtils", "Pkg", "Printf", "Reexport", "Test"]
-git-tree-sha1 = "26f24e97782dd19d52cf97073c316897ac4d0e30"
+git-tree-sha1 = "8c89e0a9a583954eae3efcf6a531e51c02b38cee"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
-version = "0.9.3"
+version = "0.9.4"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "277d3807440d9793421354b6680911fc95d91a84"
+git-tree-sha1 = "ae262fa91da6a74e8937add6b613f58cd56cdad4"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "1.0.1"
+version = "1.1.0"
 
 [[Conda]]
 deps = ["Compat", "JSON", "VersionParsing"]
@@ -69,9 +69,9 @@ version = "0.4.0"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "REPL", "Random", "Serialization", "Test"]
-git-tree-sha1 = "6e72a9098f5774601c8c8d6a4511a68270594910"
+git-tree-sha1 = "2afbbd0294306b0b74a753c196be50b35edb625c"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.11.0"
+version = "0.11.1"
 
 [[Dates]]
 deps = ["Printf"]
@@ -104,11 +104,23 @@ git-tree-sha1 = "9a56e1f77aba288918200ec6d224b63bc456c8e1"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
 version = "0.32.3"
 
+[[HTTP]]
+deps = ["Base64", "Dates", "Distributed", "IniFile", "MbedTLS", "Sockets", "Test"]
+git-tree-sha1 = "8a0f75e8b09df01d9f1ba9ad3fbf8b4983595d20"
+uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+version = "0.6.14"
+
 [[IJulia]]
 deps = ["Compat", "Conda", "InteractiveUtils", "JSON", "Markdown", "MbedTLS", "Pkg", "REPL", "Random", "UUIDs", "ZMQ"]
 git-tree-sha1 = "39eae8b2ba35ae65eac70ee642c4a6e1340c3612"
 uuid = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 version = "1.9.3"
+
+[[IniFile]]
+deps = ["Test"]
+git-tree-sha1 = "098e4d2c533924c921f9f9847274f2ad89e018b8"
+uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
+version = "0.5.0"
 
 [[InteractiveUtils]]
 deps = ["LinearAlgebra", "Markdown"]
@@ -273,9 +285,9 @@ uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[TranscodingStreams]]
 deps = ["DelimitedFiles", "Pkg", "Random", "Test"]
-git-tree-sha1 = "a27b3a1b9c1120ef67b4647b80c61a16c09b9218"
+git-tree-sha1 = "a34a2d588e2d2825602bf14a24216d5c8b0921ec"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.8.0"
+version = "0.8.1"
 
 [[UUIDs]]
 deps = ["Random"]
