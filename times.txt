@@ -1,0 +1,3 @@
+nominatim docker start database: 23:58 end databased 00:30
+
+

@@ -21,7 +21,7 @@ using HTTP
 using JSON
 using Distributed
 
-df = CSV.read("Parking_Tags_Data_2016_1.csv")
+df = CSV.read("small_data.csv")
 
 # addresses are in df.location2
 # some addresses are missing, let's filter them out.
@@ -122,12 +122,19 @@ histogram(df_EBY[:time_of_infraction], bins=23)
 # - 3 hour window with the highest average infraction (weekend vs weekday?)
 # - List of nodes in dataframe corresponding to the segment.
 
+struct InfractionNode
+    date::Int
+    code::Int
+    fine::Int
+    time::Int
+    loc::String
+end
 
 struct StreetSegment
     name::String
     osm_id::String
     boundingBox::Array{Any}
-    infraction_nodes::Array{Any}
+    infraction_nodes::Array{InfractionNode}
 end
 
 
@@ -249,17 +256,23 @@ function allStreetSegments(df)
             q_way = getStreetSegment(qstring)
             qquery = nominatim_query(qstring)
             qresponse = nominatim_response(qquery)
+            infnode = InfractionNode(df[i,:].date_of_infraction[1],
+                                     df[i,:].infraction_code[1],
+                                     df[i,:].set_fine_amount[1],
+                                     df[i,:].time_of_infraction[1],
+                                     df[i,:].location2[1])
             if haskey(listStreetSegments, q_way["osm_id"])
                 push!(listStreetSegments[q_way["osm_id"]].infraction_nodes,
-                      qresponse["osm_id"])
+                      infnode)
             else
                 seg = StreetSegment(q_way["display_name"],
                                     q_way["osm_id"],
                                     q_way["boundingbox"],
-                                    [qresponse["osm_id"]])
+                                    [infnode])
                 listStreetSegments[q_way["osm_id"]] = seg
             end
         catch err
+            # probably going to be an error where nominatim can't find the query
             print("ERROR: ")
             println(err)
             print("error at: ")
@@ -298,6 +311,8 @@ function multiStreetSegments(df)
     return f1,f2,f3, f4
 end
 
+
+# write to json help: https://gist.github.com/silgon/0ba43e00e0749cdf4f8d244e67cd9d6a
 
 
 
