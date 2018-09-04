@@ -36,7 +36,20 @@ $(document).ready(function() {
             data: {lat: e.latlng.lat, lng: e.latlng.lng},
             type: 'POST',
             success: function(data) {
+                console.log(data.bbox)
                 console.log(data.outstring)
+
+                if (data.found){
+                    console.log("found!")
+                    if (active_polygon){
+                        mymap.removeLayer(active_polygon)
+                    }
+                    active_polygon = new L.polygon([
+                                [data.bbox[0], data.bbox[2]],
+                                [data.bbox[0], data.bbox[3]],
+                                [data.bbox[1], data.bbox[3]],
+                                [data.bbox[1], data.bbox[2]]]).addTo(mymap);
+                }
             }})
 
 	}

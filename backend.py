@@ -17,7 +17,7 @@ def inBox(lat,lng, bbox):
 
     if ((bbox[0] <= lat <= bbox[1]) and
         (bbox[2] <= lng <= bbox[3])):
-        return True
+        return bbox
     else:
         return False
 
@@ -41,7 +41,8 @@ def mapclick_test():
 
     found = False
     for osm_id in streetsegs:
-        if inBox(lat,lng, streetsegs[osm_id]["boundingBox"]):
+        bbox = inBox(lat,lng, streetsegs[osm_id]["boundingBox"])
+        if bbox:
             found = True
             outstring += "inside way: " + str(osm_id)
             break
@@ -50,7 +51,9 @@ def mapclick_test():
         outstring += "not inside any bounding boxes in database."
 
 
-    return jsonify(outstring = outstring)
+    return jsonify(outstring = outstring,
+                    found = found,
+                    bbox = bbox)
 
 
 @vizapp.route('/ajaxTest', methods=['POST'])
