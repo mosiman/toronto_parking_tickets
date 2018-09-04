@@ -3,3 +3,4 @@
 nominatim-docker/*
 postgresdata/*
 *.zip
+*.mbtiles
