@@ -9,21 +9,22 @@ $(document).ready(function() {
 		accessToken: 'your.mapbox.access.token'
 	}).addTo(mymap); 
 
-	var polygon = L.polygon([
-							[43.6606658,-79.3748618],
-							[43.6606658,-79.3722203],
-							[43.6612191,-79.3722203],
-							[43.6612191,-79.3748618]
-							]).addTo(mymap);
+	// var polygon = L.polygon([
+	// 						[43.6606658,-79.3748618],
+	// 						[43.6606658,-79.3722203],
+	// 						[43.6612191,-79.3722203],
+	// 						[43.6612191,-79.3748618]
+	// 						]).addTo(mymap);
 
-    var georgeSt = L.polygon([
-                            [43.6555838, -79.3734656],
-                            [43.6555838, -79.3727395],
-                            [43.6572936, -79.3727395],
-                            [43.6572936, -79.3734656]
-                            ]).addTo(mymap);
-                            
+    // var georgeSt = L.polygon([
+    //                         [43.6555838, -79.3734656],
+    //                         [43.6555838, -79.3727395],
+    //                         [43.6572936, -79.3727395],
+    //                         [43.6572936, -79.3734656]
+    //                         ]).addTo(mymap);
+    //                         
 
+    var active_polygon;
 	var popup = L.popup()
 
 
@@ -35,7 +36,7 @@ $(document).ready(function() {
             data: {lat: e.latlng.lat, lng: e.latlng.lng},
             type: 'POST',
             success: function(data) {
-                console.log(data.result)
+                console.log(data.outstring)
             }})
 
 	}

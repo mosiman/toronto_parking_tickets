@@ -38,11 +38,19 @@ def mapclick_test():
     print(lat)
     print(lng)
     outstring = str(lat) + ", " + str(lng) + " is "
-    if inBox(lat,lng,streetsegs['5088685']["boundingBox"]):
-        outstring += "inside 5088685 bounding box"
-    else:
-        outstring += "not inside 5088685 bounding box"
-    return jsonify(result = outstring)
+
+    found = False
+    for osm_id in streetsegs:
+        if inBox(lat,lng, streetsegs[osm_id]["boundingBox"]):
+            found = True
+            outstring += "inside way: " + str(osm_id)
+            break
+
+    if not found:
+        outstring += "not inside any bounding boxes in database."
+
+
+    return jsonify(outstring = outstring)
 
 
 @vizapp.route('/ajaxTest', methods=['POST'])
