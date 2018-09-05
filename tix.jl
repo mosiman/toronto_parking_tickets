@@ -312,11 +312,11 @@ function multiStreetSegments(df)
 end
 
 
-function multiSS2(df)
 
+function multiSS2(df)
     # helper function
-    
     # warning: mutable!! mutates thedict
+    listStreetSegments = Dict{String, StreetSegment}()
     function addToDict(row, thedict)
         try
             qstring = row.location2[1] * ", Toronto"
@@ -340,16 +340,12 @@ function multiSS2(df)
             end
         catch err
             # probably going to be an error where nominatim can't find the query
-            print("ERROR: ")
             println(err)
-            print("error at: ")
-            println(i)
         end
     end
     
-    listStreetSegments = Dict{String, StreetSegment}()
 
-    for i in 1:size(df)[1]
+    @sync for i in 1:size(df)[1]
         @spawn addToDict(df[i,:], listStreetSegments)
     end
 
@@ -357,6 +353,41 @@ function multiSS2(df)
 end
 
 
+
+function allStreetSegmentsThreaded(df)
+    # make sure df has no missings, etc
+    listStreetSegments = Dict{String, StreetSegment}()
+    Threads.@threads for i in 1:size(df)[1]
+        try
+            qstring = df[i,:].location2[1] * ", Toronto"
+            q_way = getStreetSegment(qstring)
+            qquery = nominatim_query(qstring)
+            qresponse = nominatim_response(qquery)
+            infnode = InfractionNode(df[i,:].date_of_infraction[1],
+                                     df[i,:].infraction_code[1],
+                                     df[i,:].set_fine_amount[1],
+                                     df[i,:].time_of_infraction[1],
+                                     df[i,:].location2[1])
+            if haskey(listStreetSegments, q_way["osm_id"])
+                push!(listStreetSegments[q_way["osm_id"]].infraction_nodes,
+                      infnode)
+            else
+                seg = StreetSegment(q_way["display_name"],
+                                    q_way["osm_id"],
+                                    q_way["boundingbox"],
+                                    [infnode])
+                listStreetSegments[q_way["osm_id"]] = seg
+            end
+        catch err
+            # probably going to be an error where nominatim can't find the query
+            print("ERROR: ")
+            println(err)
+            print("error at: ")
+            println(i)
+        end
+    end
+    return listStreetSegments
+end
 
 
 # write to json help: https://gist.github.com/silgon/0ba43e00e0749cdf4f8d244e67cd9d6a
