@@ -312,6 +312,53 @@ function multiStreetSegments(df)
 end
 
 
+function multiSS2(df)
+
+    # helper function
+    
+    # warning: mutable!! mutates thedict
+    function addToDict(row, thedict)
+        try
+            qstring = row.location2[1] * ", Toronto"
+            q_way = getStreetSegment(qstring)
+            qquery = nominatim_query(qstring)
+            qresponse = nominatim_response(qquery)
+            infnode = InfractionNode(row.date_of_infraction[1],
+                                     row.infraction_code[1],
+                                     row.set_fine_amount[1],
+                                     row.time_of_infraction[1],
+                                     row.location2[1])
+            if haskey(thedict, q_way["osm_id"])
+                push!(thedict[q_way["osm_id"]].infraction_nodes,
+                      infnode)
+            else
+                seg = StreetSegment(q_way["display_name"],
+                                    q_way["osm_id"],
+                                    q_way["boundingbox"],
+                                    [infnode])
+                thedict[q_way["osm_id"]] = seg
+            end
+        catch err
+            # probably going to be an error where nominatim can't find the query
+            print("ERROR: ")
+            println(err)
+            print("error at: ")
+            println(i)
+        end
+    end
+    
+    listStreetSegments = Dict{String, StreetSegment}()
+
+    for i in 1:size(df)[1]
+        @spawn addToDict(df[i,:], listStreetSegments)
+    end
+
+    return listStreetSegments
+end
+
+
+
+
 # write to json help: https://gist.github.com/silgon/0ba43e00e0749cdf4f8d244e67cd9d6a
 
 

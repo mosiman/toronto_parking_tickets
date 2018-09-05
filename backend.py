@@ -40,11 +40,13 @@ def mapclick_test():
     outstring = str(lat) + ", " + str(lng) + " is "
 
     found = False
+    infnodes = []
     for osm_id in streetsegs:
         bbox = inBox(lat,lng, streetsegs[osm_id]["boundingBox"])
         if bbox:
             found = True
             outstring += "inside way: " + str(osm_id)
+            infnodes = streetsegs[osm_id]["infraction_nodes"]
             break
 
     if not found:
@@ -53,7 +55,8 @@ def mapclick_test():
 
     return jsonify(outstring = outstring,
                     found = found,
-                    bbox = bbox)
+                    bbox = bbox,
+                    infnodes = infnodes)
 
 
 @vizapp.route('/ajaxTest', methods=['POST'])

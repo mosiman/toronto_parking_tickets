@@ -38,6 +38,7 @@ $(document).ready(function() {
             success: function(data) {
                 console.log(data.bbox)
                 console.log(data.outstring)
+                console.log(data.infnodes)
 
                 if (data.found){
                     console.log("found!")
@@ -49,6 +50,14 @@ $(document).ready(function() {
                                 [data.bbox[0], data.bbox[3]],
                                 [data.bbox[1], data.bbox[3]],
                                 [data.bbox[1], data.bbox[2]]]).addTo(mymap);
+
+                    // calculate some statistics
+                    total_infractions = data.infnodes.length
+                    mean_fine = data.infnodes.map(function(x){return x.fine}).reduce(function(total,x){ return total + x}) / total_infractions
+                    console.log("total infractions: ")
+                    console.log(total_infractions)
+                    console.log("mean fine:")
+                    console.log(mean_fine)
                 }
             }})
 
