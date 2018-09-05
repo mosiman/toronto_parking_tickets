@@ -334,7 +334,7 @@ function multiSS2(df)
             else
                 seg = StreetSegment(q_way["display_name"],
                                     q_way["osm_id"],
-                                    q_way["boundingbox"],
+                                    map(x -> parse(Float64, x), q_way["boundingbox"]),
                                     [infnode])
                 thedict[q_way["osm_id"]] = seg
             end
