@@ -14,7 +14,6 @@ println("library loaded")
 @everywhere using Pkg
 @everywhere Pkg.activate(".")
 @everywhere using CSV
-@everywhere using Plots
 @everywhere using DataFrames
 @everywhere using HTTP
 @everywhere using JSON

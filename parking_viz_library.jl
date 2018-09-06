@@ -1,3 +1,5 @@
+
+
 struct InfractionNode
     date::Int
     code::Int
@@ -6,11 +8,30 @@ struct InfractionNode
     loc::String
 end
 
-struct StreetSegment
+mutable struct StreetSegment
     name::String
     osm_id::String
-    boundingBox::Array{Any}
+    boundingBox::Array{Float64}
     infraction_nodes::Array{InfractionNode}
+end
+
+# We have a dictionary of StreetSegments (key is osm_id), so 
+# we make a custom merge function dispatched to StreetSegment dicts.
+
+function merge!(d::Dict{String, StreetSegment},
+                others::Dict{String, StreetSegment})
+    for other in others
+        k = other.first
+        v = other.second
+        if haskey(d, k)
+            # concatenate infraction_nodes
+            d[k].infraction_nodes = vcat(d[k].infraction_nodes,
+                                         v.infraction_nodes)
+        else
+            d[k] = v
+        end
+    end
+    return d
 end
 
 
@@ -75,7 +96,7 @@ function allStreetSegments(df)
             else
                 seg = StreetSegment(q_way["display_name"],
                                     q_way["osm_id"],
-                                    q_way["boundingbox"],
+                                    map(x -> parse(Float64, x), q_way["boundingbox"]),
                                     [infnode])
                 listStreetSegments[q_way["osm_id"]] = seg
             end
@@ -94,7 +115,7 @@ end
 function multiSS2(df)
     # helper function
     # warning: mutable!! mutates thedict
-    listStreetSegments = Dict{String, StreetSegment}()
+    @everywhere listStreetSegments = Dict{String, StreetSegment}()
     function addToDict(row, thedict, j)
         try
             qstring = row.location2[1] * ", Toronto"
@@ -131,3 +152,20 @@ function multiSS2(df)
 
     return listStreetSegments
 end
+
+function multiStreetSegments(df)
+
+    function amongst(num, workers)
+        quotient = Int(floor(num / workers))
+        rs = push!([(quotient*x + 1):(quotient*(x+1)) for x in 0:workers-2],
+                   (quotient*(workers-1)+1):num)
+        return rs
+    end
+
+    ranges = amongst(size(df)[1], nprocs())
+
+    streetsegs = @sync [@spawn allStreetSegments(df[x, :]) for x in ranges]
+    
+    return foldl(merge!,[fetch(x) for x in streetsegs])
+end
+
