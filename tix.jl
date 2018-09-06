@@ -21,7 +21,7 @@ using HTTP
 using JSON
 using Distributed
 
-df = CSV.read("small_data.csv")
+df = CSV.read("all_2016.csv")
 
 # addresses are in df.location2
 # some addresses are missing, let's filter them out.
@@ -39,16 +39,16 @@ df = df[.!map(ismissing, df[:location2]),:]
 
 # A street near and dear (not) to my wallet: Elm street
 
-elms = unique([x for x in df.location2 if occursin(r"\d+ ELM ST", x)])
+# elms = unique([x for x in df.location2 if occursin(r"\d+ ELM ST", x)])
 
 # example: at 41 elm street, there are 105 infractions
 # df[df[:locations2] .== elms[1], :]
 
 # the Elm street between bay and yonge is essentially 1 Elm to 41 Elm.
 
-elm_bay_yonge = [x for x in elms if parse(Int,split(x)[1]) <= 41]
+# elm_bay_yonge = [x for x in elms if parse(Int,split(x)[1]) <= 41]
 
-df_EBY = df[map(x -> x in elm_bay_yonge, df[:location2]), :]
+# df_EBY = df[map(x -> x in elm_bay_yonge, df[:location2]), :]
 
 # now let's get the data for infractions in january 2 (jan1 is a holiday)
 
@@ -58,19 +58,19 @@ df_EBY = df[map(x -> x in elm_bay_yonge, df[:location2]), :]
 # nevermind, looks like theyre all non missing, the data type is just wack.
 # 32 infractions on this street. What is the distribution like?
 
-df_EBY_jan2 = df_EBY[df_EBY[:date_of_infraction] .== 20160102, :]
-
-using Plots
-
-histogram(df_EBY_jan2[:time_of_infraction], bins=23)
+# df_EBY_jan2 = df_EBY[df_EBY[:date_of_infraction] .== 20160102, :]
+# 
+# using Plots
+# 
+# histogram(df_EBY_jan2[:time_of_infraction], bins=23)
 
 # what about for all dates on this street?
 
 # holy balls theres actually a missing value, how do you even print that ticket wtf
 
-df_EBY = df_EBY[ [!ismissing(x) for x in df_EBY.time_of_infraction], :]
-
-histogram(df_EBY[:time_of_infraction], bins=23)
+# df_EBY = df_EBY[ [!ismissing(x) for x in df_EBY.time_of_infraction], :]
+# 
+# histogram(df_EBY[:time_of_infraction], bins=23)
 
 # well it isn't all that surprising, I guess. 
 # Time of infraction is kinda normal, with mean around
@@ -352,7 +352,13 @@ function multiSS2(df)
     return listStreetSegments
 end
 
+println("Loaded packages and functions")
 
+println("Threads: " * string(Threads.nthreads()))
+
+addprocs()
+
+println("Procs: " * string(length(procs())))
 
 function allStreetSegmentsThreaded(df)
     # make sure df has no missings, etc
