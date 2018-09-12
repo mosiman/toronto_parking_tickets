@@ -21,7 +21,7 @@ using HTTP
 using JSON
 using Distributed
 
-df = CSV.read("all_2016.csv")
+df = CSV.read("small_data.csv")
 
 # addresses are in df.location2
 # some addresses are missing, let's filter them out.
