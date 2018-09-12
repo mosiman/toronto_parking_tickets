@@ -3,22 +3,23 @@
 using Distributed
 println("Threads: " * string(Threads.nthreads()))
 
-addprocs(15)
+addprocs(Threads.nthreads())
 
 println("Procs: " * string(length(procs())))
 
-println("loading library")
-@everywhere include("parking_viz_library.jl")
-println("library loaded")
 
 @everywhere using Pkg
 @everywhere Pkg.activate(".")
-@everywhere using CSV
 @everywhere using DataFrames
+@everywhere using CSV
 @everywhere using HTTP
 @everywhere using JSON
 @everywhere using Distributed
 @everywhere using SQLite
+
+println("loading library")
+@everywhere include("parking_viz_library.jl")
+println("library loaded")
 
 println("Loaded packages and functions")
 
@@ -28,6 +29,10 @@ df = CSV.read("small_data.csv")
 df = df[.!map(ismissing, df[:location2]),:]
 df = df[ [!(ismissing(x)) for x in df.location2], : ]
 println("df successfully loaded")
+
+println("running multiSS2sqlite")
+
+# multiSS2sqlite(df)
 
 # dfsize = 0
 # if isempty(ARGS)
