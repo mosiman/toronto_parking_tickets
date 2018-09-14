@@ -22,7 +22,7 @@ println("library loaded")
 println("Loaded packages and functions")
 
 println("Loading df")
-df = CSV.read("all_2016.csv")
+df = CSV.read("small_data.csv")
 df = df[.!map(ismissing, df[:location2]),:]
 df = df[ [!(ismissing(x)) for x in df.location2], : ]
 println("df successfully loaded")
@@ -49,7 +49,7 @@ println("dfsmall made")
 
 println("Computing Street Segments")
 
-allstreetsegs = multiSS2(dfsmall)
+allstreetsegs = multiSS2sqlite(dfsmall)
 
 println("Done computing street segments")
 
