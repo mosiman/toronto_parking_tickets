@@ -1,6 +1,7 @@
 *.csv
 *.pbf
 nominatim-docker/*
-postgresdata/*
+postgresdata*
 *.zip
 *.mbtiles
+streetsegdb*
