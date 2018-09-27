@@ -1,3 +1,0 @@
-For vectortiles, plan is to run an opentilemap server (docker) and have leaflet query the tiles from the server. 
-
-Downside: if lots of users, my server is gg lol

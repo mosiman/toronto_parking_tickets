@@ -1,6 +1,0 @@
-nominatim docker start database: 23:58 end databased 00:30
-
-using multiss2sqlite(df) [[ df is small_data.csv ]] takes 4m47s on my laptop ((sept 12, 2018 at 15:43)) using numthreads=3
-But addToDB(df) takes 8.85 minutes ish, so not a huge savings?. 
-
-
