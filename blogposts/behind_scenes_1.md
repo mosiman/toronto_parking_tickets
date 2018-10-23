@@ -172,8 +172,79 @@ function nominatim_response(nom_query,reverse=false)
     end
 end 
 
-nom_query = nominatim_query("130 St.George Street")
-nominatim_response(nom_query)
+# Package it up into a function
+
+function getStreetSegment(qstring)
+    nom_query = nominatim_query(qstring)
+    qstring_req = nominatim_response(nom_query)
+    # reverse geolocate with 
+    lat = qstring_req["lat"]
+    lon = qstring_req["lon"]
+    reversereq = nominatim_response(nominatim_reverse(lat,lon), true)
+    return reversereq
+end
 
 ```
 
+Now all that's left to do is package it all up into a database! Easy, right? Sort of. Here are some numbers:
+
+- Retrieving a single street segment with a local Nominatim server (not even an external server) took about `0.17s`. 
+- Retrieving 10 street segments takes about `1.7s`
+- Retrieving 100 street segments takes about `177s`
+- Given that there are well over `2,000,000` entries, this would take a whopping 94 hours if it continues to scale linearly (which is likely an underestimation). 
+
+Since the Nominatim server seemingly had no trouble accepting multiple concurrent connections, I figured the best way to go would be to parallelize this. This is my first shot at parallelizing an operation, and luckily it seemed to be straightforward with Julia.
+
+```{Julia}
+
+function addToDB(df,db)
+    # println(string("worker: ", Threads.threadid()))
+    for j in 1:size(df)[1]
+        row = df[j,:]
+        try
+            #SQLite.execute!(db, "BEGIN TRANSACTION")
+            qstring = row.location2[1] * ", Toronto"
+            q_way = getStreetSegment(qstring)
+            qquery = nominatim_query(qstring)
+            qresponse = nominatim_response(qquery)
+            infnode = InfractionNode(row.date_of_infraction[1],
+                                     row.infraction_code[1],
+                                     row.set_fine_amount[1],
+                                     row.time_of_infraction[1],
+                                     row.location2[1])
+            if isempty(SQLite.query(db, "select * from streetsegments where osm_id=:osmid",
+                                     values = Dict(:osmid => q_way["osm_id"])))
+                SQLite.query(db, "insert into streetsegments values (:osmid, :name, :slat, :nlat, :wlng, :elng)",
+                             values = Dict(:osmid => q_way["osm_id"],
+                                           :name => q_way["display_name"],
+                                           :slat => parse(Float64, q_way["boundingbox"][1]),
+                                           :nlat => parse(Float64, q_way["boundingbox"][2]),
+                                           :wlng => parse(Float64, q_way["boundingbox"][3]),
+                                           :elng => parse(Float64, q_way["boundingbox"][4])
+                                          ))
+            end
+            SQLite.query(db, "insert into streetsegmentinfraction values (:osmid, :date, :code, :fine, :time, :loc)", 
+                         values = Dict(:osmid => q_way["osm_id"],
+                                       :date => row.date_of_infraction[1],
+                                       :code => row.infraction_code[1],
+                                       :fine => row.set_fine_amount[1],
+                                       :time => row.time_of_infraction[1],
+                                       :loc => row.location2[1]
+                                      ))
+            #SQLite.execute!(db, "END TRANSACTION")
+        catch err
+            # probably going to be an error where nominatim can't find the query
+            println(string(err, "at: ", j))
+        end
+    end
+end
+
+```
+
+This was also my first go at using a database. As you can see, I've commented out the areas where I tried to speed up sqlite operations by wrapping it inside one transaction (instead of multiple), but then we get into concurrent transactions and all that hairy stuff, which I decided I would forego for the sake of finishing *something* (at this point, I was quite frustrated with the whole matter). 
+
+Also, you can see that I've wrapped everything in a try/catch block. This is because an error is thrown if the server can't find the address you're looking for. For example, if `ALESSIA CIRCLE` is used, Nominatim finds it just fine. But if `ALESSIA CIRC` is used instead, it doesn't find it and something breaks along the way. 
+
+For the time being, any address not found by Nominatim is ignored, but a large part of this missing data is because of uncommon abbreviations, and I hope to clean the data further in my next iteration of this analysis.
+
+I think it's a fair point to cut off the analysis here, as I've got the data I need. The next part will go over the front end / back end interaction between Leaflet.js and my Django server.
