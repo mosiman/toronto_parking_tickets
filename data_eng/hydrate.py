@@ -15,13 +15,20 @@ tqdm.pandas()
 
 pp = pprint.PrettyPrinter(indent=4)
 
+# Yeah, harcoded connection strings are bad, but this is one-off and I'm lazy.
+# Also, everything is confined to my tailnet.
 NOMINATIM_URL="http://csclubvm:8080"
 NOMINATIM_DB_STR="dbname=nominatim user=nominatim host=csclubvm port=5432 password=very_secure_password"
 MAX_NOMINATIM_RETRIES=5
 
-# Open a duckdb connection to data/untracked/parking-tickets-2022.db
-con = duckdb.connect(database="data/untracked/parking-tickets-2022.db")
+SHITTY_CACHE = {}
+
+# Open a duckdb connection to ../data/untracked/parking-tickets-2022.db
+con = duckdb.connect(database="../data/untracked/parking-tickets-2022.db")
 nominatim_con = psycopg.connect(NOMINATIM_DB_STR)
+
+# Connect to the nominatim database from duckdb as well
+con.execute("install postgres; load postgres; ATTACH 'dbname=nominatim user=nominatim host=csclubvm password=very_secure_password' AS nominatim (TYPE postgres);")
 
 def query_nominatim_search(address):
     """
@@ -181,7 +188,7 @@ VALID_PROXIMITY_CODES=[
 # pp.pprint(irregular_codes)
 
 # There are only 127 irregular proximity codes ... I'll do my best to clean them.
-# Ok, that's not close to 127 but that's as good as we're gonna get.
+# Ok, that's not close to 127 but that's as good as we're gonna get because lazy.
 
 irregular_proximity_code_mapping = { "ACROSS": "OPP",
     "OPPS": "OPP",
@@ -315,9 +322,11 @@ def get_intersecting_ways(row, nominatim_con):
             on u.nodes && q.nodes
     """
     df = duckdb.sql(query).fetchdf()
-        
     return df
 
+
+# Some tickets are located by two streets with identifiers like "N/S" (north side) and "W/O" (west of).
+# This function tries to find the OSM way that corresponds to this location.
 # Good intersections to test:
 # - St Clair Avenue West & Spadina Road
 # - University Avenue & Elm
@@ -391,59 +400,40 @@ def get_way_from_intersection(row, nominatim_con):
 
         return {"way_id": intersecting_row[f'{col_prefix_primary}_osm_id'], "geometry": intersecting_row[f"{col_prefix_primary}_geometry"]}
 
-# intersection_ways = tickets_intersections.progress_apply(lambda x: get_way_from_intersection(x, nominatim_con), axis=1, result_type = 'expand')
-# 
-# # count the number of rows in intersection_ways where errmsg is a key
-# intersection_ways_errmsg_count = intersection_ways.progress_apply(lambda x: "errmsg" in x.keys()).sum()
-# 
-# ignore_row_idx = [
-#     0,
-#     2,
-#     9,
-#     11,
-#     12,
-#     95,
-#     97,
-#     126,
-#     134,
-#     136,
-#     168
-# ]
-# 
-# # Loop over all rows in tickets_intersections and apply get_way_from_intersection until it returns None
-# for idx, row in tickets_intersections.iterrows():
-#     print(f"Processing row {idx}")
-#     if idx <= max(ignore_row_idx):
-#         continue
-#     df = get_way_from_intersection(row, nominatim_con)
-#     if 'errmsg' in df.keys():
-#         if idx not in ignore_row_idx:
-#             print(row)
-#             print(df["errmsg"])
-#             break
-# 
-# tickets_intersections_hydrated = pd.concat([tickets_intersections, intersection_ways], axis=1)
-# 
-# duckdb.sql("select errtype, count(*) from tickets_intersections_hydrated group by errtype").fetchdf()
-# 
-# duckdb.sql("""
-# with le_error as (
-#     select * from tickets_intersections_hydrated where errtype = 'street_lookup_fail'
-# )
-# select
-#     location2,
-#     location4,
-#     count(*) as num_occurences
-# from le_error
-# group by location2, location4
-# order by num_occurences desc
-# """)
 
 def get_ways_for_ticket(row, nominatim_con):
+    # unique key on location1, location2, location3, location 4
+    # There are ~218K such unique keys, and 1821K total rows, so a cache would speed things up.
+
+    k = (row["location1"], row["location2"], row["location3"], row["location4"])
+    if k in SHITTY_CACHE:
+        print(f"Cache hit for {k}!")
+        return SHITTY_CACHE[k]
     if (row["location1"] in ['NR', 'AT', 'OPP', 'R/O', None]) or (row["location4"] is None):
-        return hydrate_address(row)
+        v = hydrate_address(row)
     else:
-        return get_way_from_intersection(row, nominatim_con)
+        v = get_way_from_intersection(row, nominatim_con)
+
+    SHITTY_CACHE[k] = v
+    return v
+
+
+def get_geojson_for_way(way_id, nominatim_con):
+    query = """
+        select
+            w.id,
+            w.nodes,
+            w.tags,
+            w.geometry,
+            w.xmax,
+            w.xmin,
+            w.ymax,
+            w.ymin
+        from planet_osm_ways w
+        where w.id = %s
+    """
+    df = pd.read_sql(query, nominatim_con, params=[way_id])
+    return df
 
 print("Loading cleaned tickets into memory dataframe")
 
@@ -463,5 +453,29 @@ print("Saving to duckdb")
 # Create a parquet file from tickets_cleaned_ways
 con.execute("drop table if exists tickets_ways")
 con.execute("create table tickets_ways as select * from tickets_cleaned_ways")
+
+print("Getting the geojson for each way")
+con.execute("""
+    drop table if exists tickets_ways_geometry;
+    create table tickets_ways_geometry as
+    select
+        tw.date_of_infraction,
+        tw.infraction_code,
+        tw.infraction_description,
+        tw.set_fine_amount,
+        tw.time_of_infraction,
+        tw.location1,
+        tw.location2,
+        tw.location3,
+        tw.location4,
+        tw.way_id,
+        ST_GeomFromHEXWKB(p.geometry), -- Use ST_AsGeoJSON later?
+        p.name
+    from tickets_ways tw
+    left join nominatim.place p
+        on p.osm_id = tw.way_id
+        and p.osm_type = 'W'
+    ;
+""")
 
 print("Done!")

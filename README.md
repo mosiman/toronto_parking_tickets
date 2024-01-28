@@ -4,6 +4,14 @@ We're starting from scratch!
 
 - May as well package libpostal + nominatim in a docker-compose file
 
+## Caveats
+
+- Around two percent of the tickets (~50K) don't have an associated geometry:
+    - Sometimes we couldn't find a way ID for them
+    - Sometimes the way ID is just plain wrong?
+        - e.g. `400 ADELAIDE ST E` we resolved the way ID to https://www.openstreetmap.org/way/12756417#map=14/34.2568/-93.2795, but that's in arkansas?
+    - TODO investigate wtf is up with this
+
 ## Why a libpostal docker image, and not the python bindings?
 
 As a result of my insistence on using Nix the package manager and my refusal to actually learn how it works, I gave up after trying to install `pypostal` through `poetry` (which is already a concession, to be clear).
