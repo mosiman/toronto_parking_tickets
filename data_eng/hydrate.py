@@ -469,7 +469,7 @@ con.execute("""
         tw.location3,
         tw.location4,
         tw.way_id,
-        ST_GeomFromHEXWKB(p.geometry), -- Use ST_AsGeoJSON later?
+        ST_GeomFromHEXWKB(p.geometry) as way_geom, -- Use ST_AsGeoJSON later?
         p.name
     from tickets_ways tw
     left join nominatim.place p
