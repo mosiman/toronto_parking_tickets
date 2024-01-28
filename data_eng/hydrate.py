@@ -29,6 +29,8 @@ nominatim_con = psycopg.connect(NOMINATIM_DB_STR)
 
 # Connect to the nominatim database from duckdb as well
 con.execute("install postgres; load postgres; ATTACH 'dbname=nominatim user=nominatim host=csclubvm password=very_secure_password' AS nominatim (TYPE postgres);")
+# Load the spatial libraries
+con.execute("install spatial; load spatial;")
 
 def query_nominatim_search(address):
     """
@@ -469,13 +471,23 @@ con.execute("""
         tw.location3,
         tw.location4,
         tw.way_id,
-        ST_GeomFromHEXWKB(p.geometry) as way_geom, -- Use ST_AsGeoJSON later?
-        p.name
+        ST_AsGeoJSON(ST_GeomFromHEXWKB(p.geometry)) as way_geom,
+        trim(  -- hstore format is like "key1"=>"value1", "key2" => "value2"
+            string_split(
+                string_split(p.name, ', ')[1], -- the first hstore kv pair
+                '=>'  -- split on the =>
+            )[2],
+            '"' -- trim quotes
+        ) as name
     from tickets_ways tw
     left join nominatim.place p
         on p.osm_id = tw.way_id
         and p.osm_type = 'W'
     ;
 """)
+
+print("Saving to a parquet file")
+
+con.execute("copy tickets_ways_geometry to 'parkingtickets.parquet' (format 'parquet');")
 
 print("Done!")
