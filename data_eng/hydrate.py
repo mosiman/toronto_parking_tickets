@@ -458,19 +458,26 @@ con.execute("create table tickets_ways as select * from tickets_cleaned_ways")
 
 print("Getting the geojson for each way")
 con.execute("""
+
     drop table if exists tickets_ways_geometry;
     create table tickets_ways_geometry as
     select
-        tw.date_of_infraction,
+        CASE
+            when (tw.time_of_infraction[:2])::int not between 0 and 23 then
+                null
+            when (tw.time_of_infraction[3:])::int not between 0 and 59 then
+                null
+            else
+                strptime(date_of_infraction::varchar || ' ' || time_of_infraction::varchar, '%Y%m%d %H%M')
+        END as infraction_ts,
         tw.infraction_code,
         tw.infraction_description,
         tw.set_fine_amount,
-        tw.time_of_infraction,
         tw.location1,
         tw.location2,
         tw.location3,
         tw.location4,
-        tw.way_id,
+        tw.way_id::bigint as way_id,
         ST_AsGeoJSON(ST_GeomFromHEXWKB(p.geometry)) as way_geom,
         trim(  -- hstore format is like "key1"=>"value1", "key2" => "value2"
             string_split(
@@ -484,6 +491,7 @@ con.execute("""
         on p.osm_id = tw.way_id
         and p.osm_type = 'W'
     ;
+
 """)
 
 print("Saving to a parquet file")
